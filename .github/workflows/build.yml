@@ -9,9 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Generate Fresh Project Structures
         run: |
           rm -rf *
@@ -23,9 +20,7 @@ jobs:
           {
             "name": "fifteenpuzzle",
             "version": "1.0.0",
-            "private": true,
-            "scripts": { "build": "aiot build", "release": "aiot release" },
-            "devDependencies": { "aiot-toolkit": "latest" }
+            "private": true
           }
           EOF
 
@@ -87,7 +82,7 @@ jobs:
           <script>
           import vibrator from '@system.vibrator'
           export default {
-            private: { grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
+            private: { grid: [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
             onInit() { this.resetGame(); },
             resetGame() {
               let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
@@ -145,23 +140,15 @@ jobs:
           </style>
           EOF
 
-      - name: Build Project
+      - name: Manual Compile and Pack RPK
         run: |
-          npm install
-          # Пробуем собрать релизную версию
-          npx aiot release || npx aiot build
+          mkdir -p dist
+          # Упаковываем файлы приложения напрямую в .rpk архив стандартным ZIP
+          cd src && zip -r ../dist/com.example.fifteenpuzzle.rpk *
           
-          # Выводим структуру, чтобы понять, куда утилита сохраняет файлы
-          echo "=== ВСЕ СОЗДАННЫЕ ФАЙЛЫ В ПРОЕКТЕ ==="
-          find . -maxdepth 3 -not -path '*/node_modules*'
-          
-          # Копируем любые файлы .rpk, если они где-то появились
-          mkdir -p final_rpk
-          find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} final_rpk/ \;
-
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: final_rpk/
-          if-no-files-found: warn
+          path: dist/*.rpk
+          if-no-files-found: error
