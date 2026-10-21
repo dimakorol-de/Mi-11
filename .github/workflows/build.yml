@@ -14,10 +14,7 @@ jobs:
           node-version: 20
       - name: Generate Fresh Fixed Project
         run: |
-          # Полностью очищаем рабочую директорию
           rm -rf *
-          
-          # Создаем идеальную структуру папок для компилятора
           mkdir -p build_env/src/common
           mkdir -p build_env/src/pages/index
           
@@ -153,21 +150,20 @@ jobs:
           </style>
           EOF
           
+          # Генерируем ключи подписи ЧЕРЕЗ СИСТЕМНЫЙ OPENSSL в Linux, а не через npx
+          mkdir -p build_env/sign
+          openssl genrsa -out build_env/sign/private.pem 2048
+          openssl req -new -x509 -key build_env/sign/private.pem -out build_env/sign/certificate.pem -days 3650 -subj "/CN=com.example.fifteenpuzzle"
+
       - name: Compile Official Signed RPK
         run: |
           cd build_env
-          # Сначала устанавливаем все компиляторы и утилиты от Xiaomi
           npm install
           
-          # Теперь, когда пакеты установлены, генерируем ключ цифровой подписи
-          npx aiot openssl genrsa -out private.pem 2048
-          mkdir -p sign
-          cp private.pem sign/private.pem
-          
-          # Запускаем официальную сборку подписанного релиза
+          # Запускаем официальную сборку релиза — теперь ключи уже лежат на месте!
           npx aiot release
           
-          # Вытаскиваем скомпилированный бинарный .rpk файл
+          # Переносим результат во внешнюю папку
           mkdir -p ../final_output
           find dist -name "*.rpk" -exec cp {} ../final_output/ \;
           
