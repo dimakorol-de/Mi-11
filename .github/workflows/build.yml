@@ -18,14 +18,15 @@ jobs:
           mkdir -p src/common
           mkdir -p src/pages/index
           
-          # 1. Создаем правильный package.json для экосистемы Xiaomi Vela (aiot-toolkit)
+          # 1. Создаем package.json
           cat << 'EOF' > package.json
           {
             "name": "fifteenpuzzle",
             "version": "1.0.0",
             "private": true,
             "scripts": {
-              "build": "aiot build"
+              "build": "aiot build",
+              "release": "aiot release"
             },
             "devDependencies": {
               "aiot-toolkit": "latest"
@@ -68,7 +69,7 @@ jobs:
           </script>
           EOF
 
-          # 4. Создаем index.ux (с полной логикой игры)
+          # 4. Создаем index.ux
           cat << 'EOF' > src/pages/index/index.ux
           <template>
             <div class="container">
@@ -91,10 +92,10 @@ jobs:
           <script>
           import vibrator from '@system.vibrator'
           export default {
-            private: { grid: [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
+            private: { grid: [,,,], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
             onInit() { this.resetGame(); },
             resetGame() {
-              let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
+              let startGrid = [,,,];
               this.emptyRow = 3; this.emptyCol = 3; this.moves = 0; this.isWon = false;
               for (let i = 0; i < 100; i++) {
                 let directions = [];
@@ -152,10 +153,16 @@ jobs:
       - name: Build Official RPK
         run: |
           npm install
-          # Собираем официальный дистрибутив через правильный aiot-toolkit
-          npx aiot build
           
-          # Копируем скомпилированный бинарный файл .rpk во внешнюю папку
+          # Автоматически генерируем приватный ключ и сертификат для подписи приложения
+          npx aiot openssl genrsa -out private.pem 2048
+          mkdir -p sign
+          cp private.pem sign/private.pem
+          
+          # Запускаем официальную финальную сборку релиза с подписью файлов
+          npx aiot release
+          
+          # Копируем скомпилированный подписанный файл .rpk во внешнюю папку
           mkdir -p final_output
           find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} final_output/ \;
 
