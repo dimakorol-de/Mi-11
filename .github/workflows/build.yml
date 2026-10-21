@@ -18,15 +18,14 @@ jobs:
           mkdir -p src/common
           mkdir -p src/pages/index
           
-          # 1. Создаем package.json с флагами для aiot-toolkit
+          # 1. Создаем правильный package.json для экосистемы Xiaomi Vela (aiot-toolkit)
           cat << 'EOF' > package.json
           {
             "name": "fifteenpuzzle",
             "version": "1.0.0",
             "private": true,
             "scripts": {
-              "build": "quickapp-toolkit build",
-              "release": "quickapp-toolkit release"
+              "build": "aiot build"
             },
             "devDependencies": {
               "aiot-toolkit": "latest"
@@ -34,35 +33,21 @@ jobs:
           }
           EOF
 
-          # 2. Создаем jsconfig.json (важно для компилятора Vela OS)
-          cat << 'EOF' > jsconfig.json
-          {
-            "compilerOptions": {
-              "target": "ES6",
-              "baseUrl": "./",
-              "paths": {
-                "/*": ["./src/*"]
-              }
-            },
-            "exclude": ["node_modules", "dist"]
-          }
-          EOF
-
-          # 3. Создаем manifest.json
+          # 2. Создаем manifest.json
           cat << 'EOF' > src/manifest.json
           {
             "package": "com.example.fifteenpuzzle",
             "name": "Пятнашки",
             "versionName": "1.0.0",
             "versionCode": 1,
-            "minPlatformVersion": 1020,
+            "minPlatformVersion": 1000,
             "deviceTypeList": ["band", "watch"],
             "features": [
               { "name": "system.router" },
               { "name": "system.vibrator" }
             ],
             "config": {
-              "logLevel": "off",
+              "logLevel": "log",
               "designWidth": 212
             },
             "router": {
@@ -74,7 +59,7 @@ jobs:
           }
           EOF
 
-          # 4. Создаем app.ux
+          # 3. Создаем app.ux
           cat << 'EOF' > src/app.ux
           <script>
           export default {
@@ -83,7 +68,7 @@ jobs:
           </script>
           EOF
 
-          # 5. Создаем index.ux
+          # 4. Создаем index.ux (с полной логикой игры)
           cat << 'EOF' > src/pages/index/index.ux
           <template>
             <div class="container">
@@ -164,17 +149,17 @@ jobs:
           </style>
           EOF
           
-      - name: Build Genuine RPK File
+      - name: Build Official RPK
         run: |
           npm install
-          # Запускаем компиляцию через официальный бинарник тулкита
-          npx quickapp-toolkit release
+          # Собираем официальный дистрибутив через правильный aiot-toolkit
+          npx aiot build
           
-          # Переносим скомпилированный файл в отдельную папку
+          # Копируем скомпилированный бинарный файл .rpk во внешнюю папку
           mkdir -p final_output
-          cp dist/*.rpk final_output/ 2>/dev/null || cp build/*.rpk final_output/ 2>/dev/null || true
+          find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} final_output/ \;
 
-      - name: Upload RPK Artifact
+      - name: Upload Genuine RPK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
