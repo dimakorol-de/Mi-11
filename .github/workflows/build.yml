@@ -1,4 +1,4 @@
-name: Build RPK Debug
+name: Build RPK Auto-Generate
 on:
   workflow_dispatch:
   push:
@@ -12,31 +12,149 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Generate Fresh Project Structures
+        run: |
+          # Полностью очищаем рабочую директорию, чтобы избавиться от путаницы в папках
+          rm -rf *
+          
+          # Создаем заново идеальную структуру папок
+          mkdir -p src/common
+          mkdir -p src/pages/index
+          
+          # 1. Создаем package.json
+          cat << 'EOF' > package.json
+          {
+            "name": "fifteenpuzzle",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": { "build": "aiot build" },
+            "devDependencies": { "aiot-toolkit": "latest" }
+          }
+          EOF
+
+          # 2. Создаем manifest.json
+          cat << 'EOF' > src/manifest.json
+          {
+            "package": "com.example.fifteenpuzzle",
+            "name": "Пятнашки",
+            "versionName": "1.0.0",
+            "versionCode": 1,
+            "minPlatformVersion": 1000,
+            "deviceTypeList": ["band", "watch"],
+            "features": [
+              { "name": "system.router" },
+              { "name": "system.vibrator" }
+            ],
+            "config": {
+              "logLevel": "log",
+              "designWidth": 212
+            },
+            "router": {
+              "entry": "pages/index",
+              "pages": {
+                "pages/index": { "component": "index" }
+              }
+            }
+          }
+          EOF
+
+          # 3. Создаем app.ux
+          cat << 'EOF' > src/app.ux
+          <script>
+          export default {
+            onCreate() { console.log("Игра запущена"); }
+          }
+          </script>
+          EOF
+
+          # 4. Создаем index.ux (Логика и дизайн Пятнашек)
+          cat << 'EOF' > src/pages/index/index.ux
+          <template>
+            <div class="container">
+              <text class="title">ПЯТНАШКИ</text>
+              <text class="score">Ходы: {{moves}}</text>
+              <div class="board">
+                <div class="row" for="{{(rowIndex, row) in grid}}">
+                  <div for="{{(colIndex, val) in row}}" class="cell {{val === 0 ? 'empty' : 'tile'}}" onclick="handleTileClick(rowIndex, colIndex)">
+                    <text class="tile-text">{{val === 0 ? '' : val}}</text>
+                  </div>
+                </div>
+              </div>
+              <div class="status-zone">
+                <text if="{{isWon}}" class="win-text">🎉 Победа!</text>
+                <input if="{{!isWon}}" type="button" class="btn-reset" value="Новая игра" onclick="resetGame" />
+                <input if="{{isWon}}" type="button" class="btn-reset btn-win" value="Играть снова" onclick="resetGame" />
+              </div>
+            </div>
+          </template>
+          <script>
+          import vibrator from '@system.vibrator'
+          export default {
+            private: { grid: [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
+            onInit() { this.resetGame(); },
+            resetGame() {
+              let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
+              this.emptyRow = 3; this.emptyCol = 3; this.moves = 0; this.isWon = false;
+              for (let i = 0; i < 150; i++) {
+                let directions = [];
+                if (this.emptyRow > 0) directions.push({r: -1, c: 0});
+                if (this.emptyRow < 3) directions.push({r: 1, c: 0});
+                if (this.emptyCol > 0) directions.push({r: 0, c: -1});
+                if (this.emptyCol < 3) directions.push({r: 0, c: 1});
+                let move = directions[Math.floor(Math.random() * directions.length)];
+                let targetRow = this.emptyRow + move.r; let targetCol = this.emptyCol + move.c;
+                startGrid[this.emptyRow][this.emptyCol] = startGrid[targetRow][targetCol];
+                startGrid[targetRow][targetCol] = 0; this.emptyRow = targetRow; this.emptyCol = targetCol;
+              }
+              this.grid = startGrid;
+            },
+            handleTileClick(row, col) {
+              if (this.isWon) return;
+              if ((Math.abs(row - this.emptyRow) + Math.abs(col - this.emptyCol)) === 1) {
+                let newGrid = JSON.parse(JSON.stringify(this.grid));
+                newGrid[this.emptyRow][this.emptyCol] = newGrid[row][col]; newGrid[row][col] = 0;
+                this.emptyRow = row; this.emptyCol = col; this.moves++; this.grid = newGrid;
+                try { vibrator.vibrate({ mode: 'short' }); } catch (e) {}
+                this.checkWin();
+              }
+            },
+            checkWin() {
+              let expected = 1;
+              for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                  if (r === 3 && c === 3) { if (this.grid[r][c] !== 0) return; }
+                  else { if (this.grid[r][c] !== expected) return; expected++; }
+                }
+              }
+              this.isWon = true;
+              try { vibrator.vibrate({ mode: 'long' }); } catch (e) {}
+            }
+          }
+          </script>
+          <style>
+            .container { flex-direction: column; align-items: center; background-color: #000000; width: 212px; padding-top: 35px; padding-bottom: 35px; }
+            .title { font-size: 24px; color: #ffffff; font-weight: bold; margin-bottom: 5px; }
+            .score { font-size: 18px; color: #aaaaaa; margin-bottom: 15px; }
+            .board { flex-direction: column; background-color: #1a1a1a; padding: 6px; border-radius: 12px; width: 192px; height: 192px; }
+            .row { flex-direction: row; width: 180px; height: 45px; }
+            .cell { width: 41px; height: 41px; margin: 2px; justify-content: center; align-items: center; border-radius: 6px; }
+            .tile { background-color: #007acc; }
+            .empty { background-color: #1a1a1a; }
+            .tile-text { font-size: 22px; color: #ffffff; font-weight: bold; }
+            .status-zone { margin-top: 20px; width: 190px; justify-content: center; flex-direction: column; align-items: center; }
+            .win-text { font-size: 22px; color: #00ff66; font-weight: bold; margin-bottom: 10px; }
+            .btn-reset { width: 170px; height: 40px; background-color: #333333; color: #ffffff; font-size: 18px; border-radius: 20px; }
+            .btn-win { background-color: #00ff66; color: #000000; }
+          </style>
+          EOF
+          
       - name: Build Project
         run: |
-          # Автоматически находим, где лежит manifest.json, и заходим туда
-          MANIFEST_DIR=$(dirname $(find . -name "manifest.json" | head -n 1))
-          echo "Папка проекта определена как: $MANIFEST_DIR"
-          cd "$MANIFEST_DIR"
-          
-          # Если мы зашли внутрь папки src, нужно подняться на уровень выше к package.json
-          if [ "$(basename "$PWD")" = "src" ]; then
-            cd ..
-          fi
-          
-          echo "Текущая папка сборки: $PWD"
           npm install
           npx aiot build
-          
-          # Магия: ищем ВСЕ файлы .rpk в репозитории без исключений
-          mkdir -p $GITHUB_WORKSPACE/rpk_output
-          find $GITHUB_WORKSPACE -name "*.rpk" -exec cp {} $GITHUB_WORKSPACE/rpk_output/ \;
-          
-          echo "--- СПИСОК НАЙДЕННЫХ ФАЙЛОВ RPK ---"
-          ls -la $GITHUB_WORKSPACE/rpk_output/ || echo "Папка пуста"
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: rpk_output/
-          if-no-files-found: warn
+          path: dist/*.rpk
+          if-no-files-found: error
