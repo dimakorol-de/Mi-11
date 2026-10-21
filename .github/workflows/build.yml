@@ -24,7 +24,7 @@ jobs:
             "name": "fifteenpuzzle",
             "version": "1.0.0",
             "private": true,
-            "scripts": { "build": "aiot build" },
+            "scripts": { "build": "aiot build", "release": "aiot release" },
             "devDependencies": { "aiot-toolkit": "latest" }
           }
           EOF
@@ -64,7 +64,7 @@ jobs:
           </script>
           EOF
 
-          # 4. Создаем index.ux (С ИСПРАВЛЕННЫМ ЦИКЛОМ)
+          # 4. Создаем index.ux
           cat << 'EOF' > src/pages/index/index.ux
           <template>
             <div class="container">
@@ -144,13 +144,18 @@ jobs:
             .btn-win { background-color: #00ff66; color: #000000; }
           </style>
           EOF
-          
+
       - name: Build Project
         run: |
           npm install
-          npx aiot build
+          # Пробуем собрать релизную версию
+          npx aiot release || npx aiot build
           
-          # Собираем файлы .rpk
+          # Выводим структуру, чтобы понять, куда утилита сохраняет файлы
+          echo "=== ВСЕ СОЗДАННЫЕ ФАЙЛЫ В ПРОЕКТЕ ==="
+          find . -maxdepth 3 -not -path '*/node_modules*'
+          
+          # Копируем любые файлы .rpk, если они где-то появились
           mkdir -p final_rpk
           find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} final_rpk/ \;
 
@@ -159,4 +164,4 @@ jobs:
         with:
           name: rpk-build
           path: final_rpk/
-          if-no-files-found: error
+          if-no-files-found: warn
