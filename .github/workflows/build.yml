@@ -34,7 +34,7 @@ jobs:
           }
           EOF
 
-          # 2. Создаем manifest.json
+          # 2. Создаем manifest.json С ОБЯЗАТЕЛЬНЫМ СВОЙСТВОМ 'icon'
           cat << 'EOF' > build_env/src/manifest.json
           {
             "package": "com.example.fifteenpuzzle",
@@ -42,6 +42,7 @@ jobs:
             "versionName": "1.0.0",
             "versionCode": 1,
             "minPlatformVersion": 1000,
+            "icon": "/common/icon.png",
             "deviceTypeList": ["band", "watch"],
             "features": [
               { "name": "system.router" },
@@ -60,7 +61,10 @@ jobs:
           }
           EOF
 
-          # 3. Создаем app.ux
+          # 3. Создаем пустую заглушку-картинку для иконки, чтобы компилятор не ругался
+          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > build_env/src/common/icon.png
+
+          # 4. Создаем app.ux
           cat << 'EOF' > build_env/src/app.ux
           <script>
           export default {
@@ -69,7 +73,7 @@ jobs:
           </script>
           EOF
 
-          # 4. Создаем index.ux
+          # 5. Создаем index.ux
           cat << 'EOF' > build_env/src/pages/index/index.ux
           <template>
             <div class="container">
@@ -92,10 +96,10 @@ jobs:
           <script>
           import vibrator from '@system.vibrator'
           export default {
-            private: { grid: [,,,], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
+            private: { grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
             onInit() { this.resetGame(); },
             resetGame() {
-              let startGrid = [,,,];
+              let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
               this.emptyRow = 3; this.emptyCol = 3; this.moves = 0; this.isWon = false;
               for (let i = 0; i < 100; i++) {
                 let directions = [];
@@ -150,7 +154,7 @@ jobs:
           </style>
           EOF
           
-          # Генерируем ключи подписи ЧЕРЕЗ СИСТЕМНЫЙ OPENSSL в Linux, а не через npx
+          # Генерируем сертификаты подписи
           mkdir -p build_env/sign
           openssl genrsa -out build_env/sign/private.pem 2048
           openssl req -new -x509 -key build_env/sign/private.pem -out build_env/sign/certificate.pem -days 3650 -subj "/CN=com.example.fifteenpuzzle"
@@ -160,10 +164,10 @@ jobs:
           cd build_env
           npm install
           
-          # Запускаем официальную сборку релиза — теперь ключи уже лежат на месте!
+          # Запускаем официальную сборку
           npx aiot release
           
-          # Переносим результат во внешнюю папку
+          # Создаем выходную папку и копируем настоящий .rpk
           mkdir -p ../final_output
           find dist -name "*.rpk" -exec cp {} ../final_output/ \;
           
