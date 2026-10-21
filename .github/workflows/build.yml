@@ -1,4 +1,4 @@
-name: Build RPK Smart Search
+name: Build RPK Direct
 on:
   workflow_dispatch:
   push:
@@ -14,18 +14,23 @@ jobs:
           node-version: 20
       - name: Build Project
         run: |
-          # Ищем, в какой папке лежит package.json
-          TARGET_DIR=$(dirname $(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1))
-          echo "Проект найден в папке: $TARGET_DIR"
-          cd "$TARGET_DIR"
+          if [ -d "Archive" ]; then
+            cd Archive
+          fi
           npm install
           npx aiot build
-          # Переносим готовый файл в корень для загрузки
-          mkdir -p ../dist
-          cp dist/*.rpk ../dist/ 2>/dev/null || cp build/*.rpk ../dist/ 2>/dev/null || true
+          
+          # Создаем общую папку для артефактов в самом корне репозитория
+          mkdir -p $GITHUB_WORKSPACE/rpk_output
+          
+          # Ищем скомпилированный .rpk файл во всех созданных папках и копируем его
+          find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} $GITHUB_WORKSPACE/rpk_output/ \;
+          
+          # Проверяем, нашелся ли файл
+          ls -la $GITHUB_WORKSPACE/rpk_output/
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: dist/*.rpk
+          path: rpk_output/*.rpk
           if-no-files-found: error
