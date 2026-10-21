@@ -1,4 +1,4 @@
-name: Build RPK Direct
+name: Build RPK Smart Search
 on:
   workflow_dispatch:
   push:
@@ -14,8 +14,15 @@ jobs:
           node-version: 20
       - name: Build Project
         run: |
+          # Ищем, в какой папке лежит package.json
+          TARGET_DIR=$(dirname $(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1))
+          echo "Проект найден в папке: $TARGET_DIR"
+          cd "$TARGET_DIR"
           npm install
           npx aiot build
+          # Переносим готовый файл в корень для загрузки
+          mkdir -p ../dist
+          cp dist/*.rpk ../dist/ 2>/dev/null || cp build/*.rpk ../dist/ 2>/dev/null || true
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
