@@ -14,10 +14,7 @@ jobs:
           node-version: 20
       - name: Generate Fresh Project Structures
         run: |
-          # Полностью очищаем рабочую директорию, чтобы избавиться от путаницы в папках
           rm -rf *
-          
-          # Создаем заново идеальную структуру папок
           mkdir -p src/common
           mkdir -p src/pages/index
           
@@ -67,7 +64,7 @@ jobs:
           </script>
           EOF
 
-          # 4. Создаем index.ux (Логика и дизайн Пятнашек)
+          # 4. Создаем index.ux
           cat << 'EOF' > src/pages/index/index.ux
           <template>
             <div class="container">
@@ -121,7 +118,7 @@ jobs:
             checkWin() {
               let expected = 1;
               for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 4; c++) {
+                for (let c = 0; c < 4; r++) {
                   if (r === 3 && c === 3) { if (this.grid[r][c] !== 0) return; }
                   else { if (this.grid[r][c] !== expected) return; expected++; }
                 }
@@ -152,9 +149,14 @@ jobs:
         run: |
           npm install
           npx aiot build
+          
+          # На всякий случай скопируем все файлы .rpk из любых скрытых мест в одну кучу
+          mkdir -p final_rpk
+          find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} final_rpk/ \;
+
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: dist/*.rpk
+          path: final_rpk/
           if-no-files-found: error
