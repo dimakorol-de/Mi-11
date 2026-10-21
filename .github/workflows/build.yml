@@ -1,4 +1,4 @@
-name: Build RPK Auto-Generate
+name: Build Genuine RPK
 on:
   workflow_dispatch:
   push:
@@ -9,36 +9,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Generate Fresh Project Structures
         run: |
           rm -rf *
           mkdir -p src/common
           mkdir -p src/pages/index
           
-          # 1. Создаем package.json
+          # 1. Создаем package.json с флагами для aiot-toolkit
           cat << 'EOF' > package.json
           {
             "name": "fifteenpuzzle",
             "version": "1.0.0",
-            "private": true
+            "private": true,
+            "scripts": {
+              "build": "quickapp-toolkit build",
+              "release": "quickapp-toolkit release"
+            },
+            "devDependencies": {
+              "aiot-toolkit": "latest"
+            }
           }
           EOF
 
-          # 2. Создаем manifest.json
+          # 2. Создаем jsconfig.json (важно для компилятора Vela OS)
+          cat << 'EOF' > jsconfig.json
+          {
+            "compilerOptions": {
+              "target": "ES6",
+              "baseUrl": "./",
+              "paths": {
+                "/*": ["./src/*"]
+              }
+            },
+            "exclude": ["node_modules", "dist"]
+          }
+          EOF
+
+          # 3. Создаем manifest.json
           cat << 'EOF' > src/manifest.json
           {
             "package": "com.example.fifteenpuzzle",
             "name": "Пятнашки",
             "versionName": "1.0.0",
             "versionCode": 1,
-            "minPlatformVersion": 1000,
+            "minPlatformVersion": 1020,
             "deviceTypeList": ["band", "watch"],
             "features": [
               { "name": "system.router" },
               { "name": "system.vibrator" }
             ],
             "config": {
-              "logLevel": "log",
+              "logLevel": "off",
               "designWidth": 212
             },
             "router": {
@@ -50,16 +74,16 @@ jobs:
           }
           EOF
 
-          # 3. Создаем app.ux
+          # 4. Создаем app.ux
           cat << 'EOF' > src/app.ux
           <script>
           export default {
-            onCreate() { console.log("Игра запущена"); }
+            onCreate() { console.log("App started"); }
           }
           </script>
           EOF
 
-          # 4. Создаем index.ux
+          # 5. Создаем index.ux
           cat << 'EOF' > src/pages/index/index.ux
           <template>
             <div class="container">
@@ -87,7 +111,7 @@ jobs:
             resetGame() {
               let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
               this.emptyRow = 3; this.emptyCol = 3; this.moves = 0; this.isWon = false;
-              for (let i = 0; i < 150; i++) {
+              for (let i = 0; i < 100; i++) {
                 let directions = [];
                 if (this.emptyRow > 0) directions.push({r: -1, c: 0});
                 if (this.emptyRow < 3) directions.push({r: 1, c: 0});
@@ -139,16 +163,20 @@ jobs:
             .btn-win { background-color: #00ff66; color: #000000; }
           </style>
           EOF
-
-      - name: Manual Compile and Pack RPK
-        run: |
-          mkdir -p dist
-          # Упаковываем файлы приложения напрямую в .rpk архив стандартным ZIP
-          cd src && zip -r ../dist/com.example.fifteenpuzzle.rpk *
           
-      - name: Upload RPK
+      - name: Build Genuine RPK File
+        run: |
+          npm install
+          # Запускаем компиляцию через официальный бинарник тулкита
+          npx quickapp-toolkit release
+          
+          # Переносим скомпилированный файл в отдельную папку
+          mkdir -p final_output
+          cp dist/*.rpk final_output/ 2>/dev/null || cp build/*.rpk final_output/ 2>/dev/null || true
+
+      - name: Upload RPK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: dist/*.rpk
+          path: final_output/
           if-no-files-found: error
