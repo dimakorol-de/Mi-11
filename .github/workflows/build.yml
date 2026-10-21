@@ -14,10 +14,10 @@ jobs:
           node-version: 20
       - name: Generate Fresh Fixed Project
         run: |
-          # Полностью очищаем папку сборки, чтобы избавиться от путаницы
+          # Полностью очищаем рабочую директорию
           rm -rf *
           
-          # Создаем идеальную структуру папок для компилятора Xiaomi
+          # Создаем идеальную структуру папок для компилятора
           mkdir -p build_env/src/common
           mkdir -p build_env/src/pages/index
           
@@ -37,7 +37,7 @@ jobs:
           }
           EOF
 
-          # 2. Создаем manifest.json (с точным разрешением Mi Band 10)
+          # 2. Создаем manifest.json
           cat << 'EOF' > build_env/src/manifest.json
           {
             "package": "com.example.fifteenpuzzle",
@@ -72,7 +72,7 @@ jobs:
           </script>
           EOF
 
-          # 4. Создаем index.ux (Исправленный код игры без бесконечных циклов)
+          # 4. Создаем index.ux
           cat << 'EOF' > build_env/src/pages/index/index.ux
           <template>
             <div class="container">
@@ -95,10 +95,10 @@ jobs:
           <script>
           import vibrator from '@system.vibrator'
           export default {
-            private: { grid: [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
+            private: { grid: [,,,], emptyRow: 3, emptyCol: 3, moves: 0, isWon: false },
             onInit() { this.resetGame(); },
             resetGame() {
-              let startGrid = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
+              let startGrid = [,,,];
               this.emptyRow = 3; this.emptyCol = 3; this.moves = 0; this.isWon = false;
               for (let i = 0; i < 100; i++) {
                 let directions = [];
@@ -153,21 +153,21 @@ jobs:
           </style>
           EOF
           
-          # 5. Генерируем ключ цифровой подписи
+      - name: Compile Official Signed RPK
+        run: |
           cd build_env
+          # Сначала устанавливаем все компиляторы и утилиты от Xiaomi
+          npm install
+          
+          # Теперь, когда пакеты установлены, генерируем ключ цифровой подписи
           npx aiot openssl genrsa -out private.pem 2048
           mkdir -p sign
           cp private.pem sign/private.pem
           
-      - name: Compile Official Signed RPK
-        run: |
-          cd build_env
-          npm install
-          
-          # Запускаем сборку бинарного релиза
+          # Запускаем официальную сборку подписанного релиза
           npx aiot release
           
-          # Вытаскиваем скомпилированный рабочий .rpk
+          # Вытаскиваем скомпилированный бинарный .rpk файл
           mkdir -p ../final_output
           find dist -name "*.rpk" -exec cp {} ../final_output/ \;
           
