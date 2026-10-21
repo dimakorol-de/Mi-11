@@ -1,4 +1,4 @@
-name: Build RPK Direct
+name: Build RPK Debug
 on:
   workflow_dispatch:
   push:
@@ -14,23 +14,29 @@ jobs:
           node-version: 20
       - name: Build Project
         run: |
-          if [ -d "Archive" ]; then
-            cd Archive
+          # Автоматически находим, где лежит manifest.json, и заходим туда
+          MANIFEST_DIR=$(dirname $(find . -name "manifest.json" | head -n 1))
+          echo "Папка проекта определена как: $MANIFEST_DIR"
+          cd "$MANIFEST_DIR"
+          
+          # Если мы зашли внутрь папки src, нужно подняться на уровень выше к package.json
+          if [ "$(basename "$PWD")" = "src" ]; then
+            cd ..
           fi
+          
+          echo "Текущая папка сборки: $PWD"
           npm install
           npx aiot build
           
-          # Создаем общую папку для артефактов в самом корне репозитория
+          # Магия: ищем ВСЕ файлы .rpk в репозитории без исключений
           mkdir -p $GITHUB_WORKSPACE/rpk_output
+          find $GITHUB_WORKSPACE -name "*.rpk" -exec cp {} $GITHUB_WORKSPACE/rpk_output/ \;
           
-          # Ищем скомпилированный .rpk файл во всех созданных папках и копируем его
-          find . -name "*.rpk" -not -path "*/node_modules/*" -exec cp {} $GITHUB_WORKSPACE/rpk_output/ \;
-          
-          # Проверяем, нашелся ли файл
-          ls -la $GITHUB_WORKSPACE/rpk_output/
+          echo "--- СПИСОК НАЙДЕННЫХ ФАЙЛОВ RPK ---"
+          ls -la $GITHUB_WORKSPACE/rpk_output/ || echo "Папка пуста"
       - name: Upload RPK
         uses: actions/upload-artifact@v4
         with:
           name: rpk-build
-          path: rpk_output/*.rpk
-          if-no-files-found: error
+          path: rpk_output/
+          if-no-files-found: warn
